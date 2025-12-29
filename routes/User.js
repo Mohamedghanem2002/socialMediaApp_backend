@@ -128,7 +128,7 @@ router.get("/suggestions/users", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "Authenticated user not found" });
     }
     
-    const following = currentUser.following || [];
+    const following = Array.isArray(currentUser.following) ? currentUser.following : [];
     const suggestions = await User.find({
       _id: { $nin: [...following, req.user.id] },
     })
@@ -137,8 +137,8 @@ router.get("/suggestions/users", authMiddleware, async (req, res) => {
 
     res.json(suggestions);
   } catch (error) {
-    console.error("Suggestions Error:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Suggestions Route Error:", error);
+    res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
 });
 
