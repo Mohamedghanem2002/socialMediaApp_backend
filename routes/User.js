@@ -124,14 +124,20 @@ router.get("/search/users", authMiddleware, async (req, res) => {
 router.get("/suggestions/users", authMiddleware, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ error: "Authenticated user not found" });
+    }
+    
+    const following = currentUser.following || [];
     const suggestions = await User.find({
-      _id: { $nin: [...currentUser.following, req.user.id] },
+      _id: { $nin: [...following, req.user.id] },
     })
       .limit(5)
       .select("name email avatar");
 
     res.json(suggestions);
   } catch (error) {
+    console.error("Suggestions Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
