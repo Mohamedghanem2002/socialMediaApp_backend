@@ -42,12 +42,27 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
+// Debug route (safe - only shows if keys exist, not their values)
+app.get("/debug-env", (req, res) => {
+  res.json({
+    node_env: process.env.NODE_ENV,
+    mongo_uri_set: !!process.env.MONGO_URI,
+    jwt_secret_set: !!process.env.JWT_SECRET,
+    pusher_app_id_set: !!process.env.PUSHER_APP_ID,
+    pusher_key_set: !!process.env.PUSHER_KEY,
+    pusher_secret_set: !!process.env.PUSHER_SECRET,
+    pusher_cluster_set: !!process.env.PUSHER_CLUSTER,
+    cloudinary_set: !!process.env.CLOUDINARY_CLOUD_NAME
+  });
+});
+
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("Connected to MongoDB");
-  })
-  .catch((error) => console.log(error));
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((error) => {
+    console.error("MongoDB Connection Error:", error);
+    // On Vercel, we want to know if it failed
+  });
 
 // Port configuration for local and production
 const PORT = process.env.PORT || 5000;
