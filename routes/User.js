@@ -103,6 +103,45 @@ router.get("/me/profile", async (req, res) => {
 });
 
 
+router.get("/search/users", authMiddleware, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json([]);
+
+    const users = await User.find({
+      $and: [
+        { _id: { $ne: req.user.id } },
+        {
+          $or: [
+            { name: { $regex: q, $options: "i" } },
+            { email: { $regex: q, $options: "i" } },
+          ],
+        },
+      ],
+    }).select("name email avatar followers following");
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/suggestions/users", authMiddleware, async (req, res) => {
+  try {
+    // Get users that the current user is not following
+    const currentUser = await User.findById(req.user.id);
+    const suggestions = await User.find({
+      _id: { $nin: [...currentUser.following, req.user.id] },
+    })
+      .limit(5)
+      .select("name email avatar");
+
+    res.json(suggestions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password").populate("followers", "name email avatar").populate("following", "name email avatar");
@@ -183,43 +222,5 @@ router.post("/follow/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/search/users", authMiddleware, async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q) return res.json([]);
-
-    const users = await User.find({
-      $and: [
-        { _id: { $ne: req.user.id } },
-        {
-          $or: [
-            { name: { $regex: q, $options: "i" } },
-            { email: { $regex: q, $options: "i" } },
-          ],
-        },
-      ],
-    }).select("name email avatar followers following");
-
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get("/suggestions/users", authMiddleware, async (req, res) => {
-  try {
-    // Get users that the current user is not following
-    const currentUser = await User.findById(req.user.id);
-    const suggestions = await User.find({
-      _id: { $nin: [...currentUser.following, req.user.id] },
-    })
-      .limit(5)
-      .select("name email avatar");
-
-    res.json(suggestions);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 export default router;
