@@ -23,7 +23,7 @@ const pusher = new Pusher({
 });
 
 app.use(cors({
-  origin: ["http://localhost:3000", "https://social-media-app-frontend-one.vercel.app"], // Add your frontend Vercel URL later
+  origin: ["http://localhost:3000", "http://localhost:5173", "https://social-media-app-frontend-one.vercel.app"],
   credentials: true,
 }));
 
