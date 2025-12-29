@@ -3,11 +3,12 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import {authMiddleware} from "../middleware/AuthMiddleware.js";
+import { authMiddleware } from "../middleware/AuthMiddleware.js";
 import Notification from "../models/Notification.js";
 
 const router = express.Router();
 
+// Helper: set auth cookie
 function setAuthCookie(res, token) {
   res.cookie("token", token, {
     httpOnly: true,
@@ -17,6 +18,12 @@ function setAuthCookie(res, token) {
   });
 }
 
+// ======= Test endpoint =======
+router.get("/", (req, res) => {
+  res.send("Users route is working!");
+});
+
+// ======= Auth routes =======
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -24,10 +31,7 @@ router.post("/register", async (req, res) => {
     const user = new User({ name, email, password: hashedPassword });
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     setAuthCookie(res, token);
 
     res.status(201).json({
@@ -36,9 +40,7 @@ router.post("/register", async (req, res) => {
       user: { id: user._id, name: user.name, email: user.email },
     });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ error: "User already exists" });
-    }
+    if (error.code === 11000) return res.status(409).json({ error: "User already exists" });
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -47,19 +49,14 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: "Invalid Password" });
-    }
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: "Invalid Password" });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     setAuthCookie(res, token);
-    
+
     res.status(201).json({
       message: "User logged in successfully",
       token,
@@ -72,38 +69,35 @@ router.post("/login", async (req, res) => {
 
 router.post("/logout", (req, res) => {
   res.clearCookie("token", {
-     httpOnly: true,
+    httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
   res.status(200).json({ message: "User logged out successfully" });
 });
 
-
+// ======= Profile =======
 router.get("/me/profile", async (req, res) => {
   try {
     const headerToken = req.header("Authorization")?.replace("Bearer ", "");
     const cookieToken = req.cookies.token;
     const token = headerToken || cookieToken;
 
-    if (!token) {
-      return res.status(200).json(null);
-    }
+    if (!token) return res.status(200).json(null);
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password").populate("followers", "name email avatar").populate("following", "name email avatar");
+    const user = await User.findById(decoded.id)
+      .select("-password")
+      .populate("followers", "name email avatar")
+      .populate("following", "name email avatar");
 
-    if (!user) {
-      return res.status(200).json(null);
-    }
-    res.status(200).json(user);
-  } catch (error) {
-    // Return null if token is invalid or expired to suppress 401 logging
+    res.status(200).json(user || null);
+  } catch {
     res.status(200).json(null);
   }
 });
 
-
+// ======= Search & suggestions =======
 router.get("/search/users", authMiddleware, async (req, res) => {
   try {
     const { q } = req.query;
@@ -129,7 +123,6 @@ router.get("/search/users", authMiddleware, async (req, res) => {
 
 router.get("/suggestions/users", authMiddleware, async (req, res) => {
   try {
-    // Get users that the current user is not following
     const currentUser = await User.findById(req.user.id);
     const suggestions = await User.find({
       _id: { $nin: [...currentUser.following, req.user.id] },
@@ -143,78 +136,68 @@ router.get("/suggestions/users", authMiddleware, async (req, res) => {
   }
 });
 
+// ======= User by ID =======
 router.get("/:id", async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ error: "Invalid User ID format" });
     }
-    const user = await User.findById(req.params.id).select("-password").populate("followers", "name email avatar").populate("following", "name email avatar");
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const user = await User.findById(req.params.id)
+      .select("-password")
+      .populate("followers", "name email avatar")
+      .populate("following", "name email avatar");
+    if (!user) return res.status(404).json({ error: "User not found" });
+
     res.status(200).json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// ======= Avatar update =======
 router.put("/:id/avatar", authMiddleware, async (req, res) => {
-    try {
-        const {id} = req.params;
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-          return res.status(400).json({ error: "Invalid User ID format" });
-        }
-      const { avatar } = req.body;
-      const user = await User.findByIdAndUpdate(id, { avatar }, { new: true })
-      res.json(user)
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-})
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: "Invalid User ID format" });
 
+    const { avatar } = req.body;
+    const user = await User.findByIdAndUpdate(id, { avatar }, { new: true });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
+// ======= Follow/Unfollow =======
 router.post("/follow/:id", authMiddleware, async (req, res) => {
   try {
     const targetUserId = req.params.id;
-    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
-      return res.status(400).json({ error: "Invalid User ID format" });
-    }
-    const currentUserId = req.user.id;
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) return res.status(400).json({ error: "Invalid User ID format" });
 
-    if (targetUserId === currentUserId) {
-      return res.status(400).json({ error: "You cannot follow yourself" });
-    }
+    const currentUserId = req.user.id;
+    if (targetUserId === currentUserId) return res.status(400).json({ error: "You cannot follow yourself" });
 
     const targetUser = await User.findById(targetUserId);
     const currentUser = await User.findById(currentUserId);
+    if (!targetUser || !currentUser) return res.status(404).json({ error: "User not found" });
 
-    if (!targetUser || !currentUser) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const isFollowing = currentUser.following.some(id => id.toString() === targetUserId);
+    const isFollowing = currentUser.following.some((id) => id.toString() === targetUserId);
 
     if (isFollowing) {
-      // Unfollow
       currentUser.following.pull(targetUserId);
       targetUser.followers.pull(currentUserId);
     } else {
-      // Follow
       currentUser.following.push(targetUserId);
       targetUser.followers.push(currentUserId);
 
-      // Create notification
       const notification = new Notification({
         recipient: targetUserId,
         sender: currentUserId,
         type: "follow",
       });
       await notification.save();
-
       const populatedNotification = await notification.populate("sender", "name avatar");
 
-      // Real-time pusher emission
       const pusher = req.app.get("pusher");
       pusher.trigger(`user-${targetUserId}`, "notification:new", populatedNotification);
     }
@@ -231,6 +214,5 @@ router.post("/follow/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 
 export default router;
