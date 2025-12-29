@@ -2,8 +2,6 @@ import express from "express";
 import { authMiddleware } from "../middleware/AuthMiddleware.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
-import { userSockets } from "../server.js"; // Access socket map
-
 const router = express.Router();
 
 // Get list of conversations (users chatted with)
