@@ -31,7 +31,7 @@ router.post("/register", async (req, res) => {
     const user = new User({ name, email, password: hashedPassword });
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || "fallback_secret", { expiresIn: "7d" });
     setAuthCookie(res, token);
 
     res.status(201).json({
@@ -40,8 +40,9 @@ router.post("/register", async (req, res) => {
       user: { id: user._id, name: user.name, email: user.email },
     });
   } catch (error) {
+    console.error("Register Error:", error);
     if (error.code === 11000) return res.status(409).json({ error: "User already exists" });
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error during registration", details: error.message });
   }
 });
 
@@ -54,16 +55,22 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: "Invalid Password" });
 
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not defined in environment variables");
+      return res.status(500).json({ error: "Server configuration error" });
+    }
+
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     setAuthCookie(res, token);
 
-    res.status(201).json({
+    res.status(200).json({
       message: "User logged in successfully",
       token,
       user: { id: user._id, name: user.name, email: user.email },
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Login Error:", error);
+    res.status(500).json({ error: "Server error during login", details: error.message });
   }
 });
 
