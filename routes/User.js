@@ -144,6 +144,9 @@ router.get("/suggestions/users", authMiddleware, async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid User ID format" });
+    }
     const user = await User.findById(req.params.id).select("-password").populate("followers", "name email avatar").populate("following", "name email avatar");
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -157,6 +160,9 @@ router.get("/:id", async (req, res) => {
 router.put("/:id/avatar", authMiddleware, async (req, res) => {
     try {
         const {id} = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          return res.status(400).json({ error: "Invalid User ID format" });
+        }
       const { avatar } = req.body;
       const user = await User.findByIdAndUpdate(id, { avatar }, { new: true })
       res.json(user)
@@ -170,6 +176,9 @@ router.put("/:id/avatar", authMiddleware, async (req, res) => {
 router.post("/follow/:id", authMiddleware, async (req, res) => {
   try {
     const targetUserId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ error: "Invalid User ID format" });
+    }
     const currentUserId = req.user.id;
 
     if (targetUserId === currentUserId) {

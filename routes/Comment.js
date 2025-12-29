@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import { authMiddleware } from "../middleware/AuthMiddleware.js";
 import Comments from "../models/Comments.js";
 import Posts from "../models/Posts.js";
@@ -10,6 +11,10 @@ const router = express.Router()
 // add comment to post
 router.post("/:postId", authMiddleware, async(req,res)=> {
 
+    const {postId} = req.params;
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+        return res.status(400).json({ error: "Invalid Post ID format" });
+    }
     const {text} = req.body
 
 
@@ -65,6 +70,9 @@ router.post("/:postId", authMiddleware, async(req,res)=> {
 // get all comments for post (including nested replies)
 router.get("/:postId", authMiddleware, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.postId)) {
+      return res.status(400).json({ error: "Invalid Post ID format" });
+    }
     const comments = await Comments.find({ post: req.params.postId })
       .populate("user", "name avatar")
       .sort({ createdAt: 1 }); // Sort by creation date
@@ -78,6 +86,10 @@ router.get("/:postId", authMiddleware, async (req, res) => {
 // reply to comment
 router.post("/reply/:commentId", authMiddleware, async (req, res) => {
   try {
+    const { commentId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ error: "Invalid Comment ID format" });
+    }
     const { text } = req.body;
     const parentComment = await Comments.findById(req.params.commentId);
 
@@ -124,6 +136,9 @@ router.post("/reply/:commentId", authMiddleware, async (req, res) => {
 
 router.get("/count/:postId", authMiddleware , async(req,res)=> {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.postId)) {
+          return res.status(400).json({ error: "Invalid Post ID format" });
+        }
         const count = await Comments.countDocuments({post:req.params.postId})
         res.json({count})
     } catch (error) {
@@ -134,6 +149,10 @@ router.get("/count/:postId", authMiddleware , async(req,res)=> {
 // update comment
 router.put("/:commentId", authMiddleware, async (req, res) => {
   try {
+    const { commentId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ error: "Invalid Comment ID format" });
+    }
     const { text } = req.body;
     const comment = await Comments.findById(req.params.commentId);
 
@@ -158,7 +177,11 @@ router.put("/:commentId", authMiddleware, async (req, res) => {
 // delete comment
 router.delete("/:commentId", authMiddleware, async (req, res) => {
   try {
-    const comment = await Comments.findById(req.params.commentId);
+    const { commentId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ error: "Invalid Comment ID format" });
+    }
+    const comment = await Comments.findById(commentId);
 
     if (!comment) {
       return res.status(404).json({ error: "Comment not found" });

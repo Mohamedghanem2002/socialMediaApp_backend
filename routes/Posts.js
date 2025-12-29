@@ -1,5 +1,6 @@
 
 import express from "express";
+import mongoose from "mongoose";
 
 import Post from "../models/Posts.js"
 import User from "../models/User.js"
@@ -70,6 +71,9 @@ router.get("/", authMiddleware, async(req,res)=> {
 
 router.put("/:id", authMiddleware, async(req,res)=> {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+          return res.status(400).json({ error: "Invalid Post ID format" });
+        }
         const post = await Post.findById(req.params.id)
         if(post.user.toString() !== req.user.id){
             return res.status(403).json({error:"Not Authorized"})
@@ -89,6 +93,9 @@ router.put("/:id", authMiddleware, async(req,res)=> {
 
 router.delete("/:postId", authMiddleware, async(req,res)=> {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.postId)) {
+          return res.status(400).json({ error: "Invalid Post ID format" });
+        }
         const post = await Post.findById(req.params.postId) 
 
         if(post.user.toString() !== req.user.id){
@@ -106,6 +113,9 @@ router.delete("/:postId", authMiddleware, async(req,res)=> {
 
 router.get("/by-user/:userId", async(req,res)=> {
     try {
+       if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+         return res.status(400).json({ error: "Invalid User ID format" });
+       }
        const posts = await Post.find({user:req.params.userId}) 
        .populate("user" , "name email avatar")
         .sort({ createdAt: -1 });
@@ -117,6 +127,9 @@ router.get("/by-user/:userId", async(req,res)=> {
 
 router.get("/:id", authMiddleware, async(req,res)=> {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+          return res.status(400).json({ error: "Invalid Post ID format" });
+        }
         const post = await Post.findById(req.params.id)
             .populate("user", "name email avatar")
             .populate("likes", "name avatar");
@@ -140,6 +153,9 @@ router.post("/like/:id", authMiddleware, async(req,res)=> {
 
     try {
         const {id} = req.params
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          return res.status(400).json({ error: "Invalid Post ID format" });
+        }
     const userId = req.user.id
 
     const post = await Post.findById(id)
