@@ -4,7 +4,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import {authMiddleware} from "../middleware/AuthMiddleware.js";
 import Notification from "../models/Notification.js";
-import { userSockets } from "../server.js";
 
 const router = express.Router();
 
@@ -166,12 +165,9 @@ router.post("/follow/:id", authMiddleware, async (req, res) => {
 
       const populatedNotification = await notification.populate("sender", "name avatar");
 
-      // Real-time socket emission
-      const io = req.app.get("io");
-      const recipientSocketId = userSockets.get(targetUserId);
-      if (recipientSocketId) {
-        io.to(recipientSocketId).emit("notification:new", populatedNotification);
-      }
+      // Real-time pusher emission
+      const pusher = req.app.get("pusher");
+      pusher.trigger(`user-${targetUserId}`, "notification:new", populatedNotification);
     }
 
     await currentUser.save();

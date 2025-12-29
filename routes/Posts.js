@@ -8,7 +8,6 @@ import cloudinary from "../utils/cloudinary.js"
 const router = express.Router()
 import {authMiddleware} from "../middleware/AuthMiddleware.js"
 import Notification from "../models/Notification.js";
-import { userSockets } from "../server.js";
 
 
 router.post("/", authMiddleware, async(req,res)=> {
@@ -165,13 +164,8 @@ router.post("/like/:id", authMiddleware, async(req,res)=> {
                     const populatedNotification = await notification.populate("sender", "name avatar")
                 
                      // Send real-time notification
-        
-                     const io = req.app.get("io")
-                     const recipientSocketId = userSockets.get(post.user.toString())
-        
-                     if(recipientSocketId){
-                        io.to(recipientSocketId).emit("notification:new", populatedNotification)
-                     }
+                     const pusher = req.app.get("pusher");
+                     pusher.trigger(`user-${post.user.toString()}`, "notification:new", populatedNotification);
                 }
 
     }
